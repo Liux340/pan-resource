@@ -1,0 +1,20 @@
+---
+import type { Category } from '../types/resource';
+
+export interface Props {
+  category: Category;
+}
+
+const { category } = Astro.props;
+---
+
+<a
+  href={`/category/${category.slug}`}
+  class="card flex items-center gap-4 p-4"
+>
+  <span class="text-3xl">{category.icon}</span>
+  <div>
+    <h3 class="font-semibold">{category.name}</h3>
+    <p class="text-sm" style="color: var(--text-secondary);">{category.count} 个资源</p>
+  </div>
+</a>

@@ -1,0 +1,98 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import ResourceCard from '../../components/ResourceCard.astro';
+import { getAllResources } from '../../utils/resource';
+import type { ResourceFrontmatter } from '../../types/resource';
+
+export function getStaticPaths() {
+  const resources = getAllResources();
+  return resources.map((r) => ({
+    params: { slug: r.frontmatter.slug },
+    props: { resource: r },
+  }));
+}
+
+const { resource } = Astro.props;
+const { frontmatter: f } = resource;
+const related = getAllResources()
+  .filter((r) => r.frontmatter.category === f.category && r.frontmatter.slug !== f.slug)
+  .slice(0, 4);
+---
+
+<BaseLayout title={f.title} description={f.description}>
+  <div class="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-12">
+    <nav class="flex items-center gap-2 text-sm mb-8" style="color: var(--text-tertiary);">
+      <a href="/" class="hover:underline">首页</a>
+      <span>/</span>
+      <a href={`/category/${f.category}`} class="hover:underline">{f.category}</a>
+      <span>/</span>
+      <span style="color: var(--text-secondary);">{f.title}</span>
+    </nav>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-10">
+      <div class="lg:col-span-1">
+        <div class="card overflow-hidden sticky top-24">
+          {f.cover ? (
+            <img src={f.cover} alt={f.title} class="w-full aspect-video object-cover" />
+          ) : (
+            <div class="aspect-video flex items-center justify-center" style="background-color: var(--bg-secondary);">
+              <span class="text-6xl">📦</span>
+            </div>
+          )}
+
+          <div class="p-4 space-y-4">
+            <h3 class="font-semibold text-sm mb-2">下载方式</h3>
+            {f.夸克链接 && (
+              <a href={f.夸克链接} target="_blank" rel="noopener noreferrer" class="btn-primary w-full">
+                夸克网盘下载
+              </a>
+            )}
+            {f.百度链接 && (
+              <a href={f.百度链接} target="_blank" rel="noopener noreferrer" class="btn-outline w-full">
+                百度网盘下载
+              </a>
+            )}
+            {f.迅雷链接 && (
+              <a href={f.迅雷链接} target="_blank" rel="noopener noreferrer" class="btn-outline w-full">
+                迅雷网盘下载
+              </a>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div class="lg:col-span-2">
+        <h1 class="text-3xl font-bold tracking-tight mb-4">{f.title}</h1>
+
+        <div class="flex flex-wrap gap-2 mb-6">
+          <a href={`/category/${f.category}`} class="tag">{f.category}</a>
+          {f.tags?.map((tag) => <span class="tag">{tag}</span>)}
+        </div>
+
+        <div class="flex flex-wrap gap-4 text-sm mb-8" style="color: var(--text-tertiary);">
+          {f.publishDate && <span>发布: {f.publishDate}</span>}
+          {f.updateDate && <span>更新: {f.updateDate}</span>}
+          {f.recommended && <span style="color: var(--accent);">推荐</span>}
+          {f.popular && <span style="color: #f59e0b;">热门</span>}
+        </div>
+
+        <div class="mb-8 p-4 rounded-xl" style="background-color: var(--bg-secondary); border-left: 3px solid var(--accent);">
+          <p class="text-sm leading-relaxed" style="color: var(--text-secondary);">{f.description}</p>
+        </div>
+
+        <article class="prose prose-sm max-w-none" style="color: var(--text-primary);">
+          <slot />
+        </article>
+      </div>
+    </div>
+
+    {related.length > 0 && (
+      <section class="mt-16 pt-12 border-t" style="border-color: var(--border-color);">
+        <h2 class="section-title mb-8">相关推荐</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+          {related.map((r) => <ResourceCard resource={r} />)}
+        </div>
+      </section>
+    )}
+  </div>
+</BaseLayout>

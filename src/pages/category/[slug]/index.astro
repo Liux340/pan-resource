@@ -1,0 +1,38 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import ResourceCard from '../../../components/ResourceCard.astro';
+import { getResourcesByCategory, getCategories } from '../../../utils/resource';
+
+export function getStaticPaths() {
+  const categories = getCategories();
+  return categories.map((cat) => ({
+    params: { slug: cat.slug },
+    props: { category: cat },
+  }));
+}
+
+const { category } = Astro.props;
+const resources = getResourcesByCategory(category.slug);
+---
+
+<BaseLayout title={category.name}>
+  <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16">
+    <div class="mb-10">
+      <h1 class="text-3xl font-bold tracking-tight mb-2">
+        <span class="mr-2">{category.icon}</span>
+        {category.name}
+      </h1>
+      <p class="mb-6" style="color: var(--text-secondary);">共 {category.count} 个资源</p>
+      <a href="/category" class="btn-outline text-sm">&larr; 返回分类</a>
+    </div>
+    {resources.length > 0 ? (
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        {resources.map((r) => <ResourceCard resource={r} />)}
+      </div>
+    ) : (
+      <div class="text-center py-20">
+        <p class="text-lg" style="color: var(--text-tertiary);">暂无资源</p>
+      </div>
+    )}
+  </div>
+</BaseLayout>

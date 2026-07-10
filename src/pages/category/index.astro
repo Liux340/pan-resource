@@ -1,0 +1,17 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import CategoryCard from '../../components/CategoryCard.astro';
+import { getCategories } from '../../utils/resource';
+
+const categories = getCategories();
+---
+
+<BaseLayout title="分类浏览">
+  <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16">
+    <h1 class="text-3xl font-bold tracking-tight mb-2">分类浏览</h1>
+    <p class="mb-10" style="color: var(--text-secondary);">按分类浏览所有资源</p>
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+      {categories.map((cat) => <CategoryCard category={cat} />)}
+    </div>
+  </div>
+</BaseLayout>
