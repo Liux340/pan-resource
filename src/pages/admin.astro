@@ -1,0 +1,217 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="管理后台">
+  <div class="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-16" id="app">
+    <!-- 登录 -->
+    <div id="login-box">
+      <h1 class="text-3xl font-bold mb-6">管理后台</h1>
+      <p class="mb-6" style="color: var(--text-secondary);">请登录 GitHub 账号以管理资源</p>
+      <input
+        id="token-input"
+        type="password"
+        placeholder="输入 GitHub Personal Access Token (ghp_xxx)"
+        class="w-full rounded-xl border-2 px-4 py-3 text-sm mb-4 outline-none"
+        style="background-color: var(--bg-card); border-color: var(--border-color); color: var(--text-primary);"
+      />
+      <button id="login-btn" class="btn-primary">登录</button>
+      <p class="mt-4 text-xs" style="color: var(--text-tertiary);">
+        <a href="https://github.com/settings/tokens/new?scopes=repo&description=PanResource-CMS" target="_blank" class="underline">创建 Token</a>
+        需要勾选 repo 权限
+      </p>
+    </div>
+
+    <!-- 管理面板 -->
+    <div id="panel-box" class="hidden">
+      <div class="flex items-center justify-between mb-8">
+        <h1 class="text-3xl font-bold">资源管理</h1>
+        <div class="flex gap-3">
+          <button id="new-btn" class="btn-primary">新建资源</button>
+          <button id="logout-btn" class="btn-outline">退出</button>
+        </div>
+      </div>
+      <div id="resource-list"></div>
+      <div id="editor" class="hidden"></div>
+    </div>
+  </div>
+
+  <script>
+    const REPO = 'Liux340/pan-resource';
+    const BRANCH = 'master';
+    const CONTENT_PATH = 'src/content/resources';
+    let token = localStorage.getItem('gh-token');
+
+    const $ = (s) => document.querySelector(s);
+    const loginBox = $('#login-box');
+    const panelBox = $('#panel-box');
+    const resourceList = $('#resource-list');
+    const editor = $('#editor');
+
+    function headers() {
+      return {
+        'Authorization': `token ${token}`,
+        'Accept': 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json',
+      };
+    }
+
+    async function api(path, opts = {}) {
+      const res = await fetch(`https://api.github.com${path}`, { ...opts, headers: { ...headers(), ...opts.headers } });
+      if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+      return res.json();
+    }
+
+    function parseFrontmatter(text) {
+      const match = text.match(/^---\n([\s\S]*?)\n---/);
+      if (!match) return {};
+      const fm = {};
+      match[1].split('\n').forEach(line => {
+        const idx = line.indexOf(':');
+        if (idx > 0) fm[line.slice(0, idx).trim()] = line.slice(idx + 1).trim();
+      });
+      return fm;
+    }
+
+    function buildFrontmatter(data) {
+      let fm = '---\n';
+      for (const [k, v] of Object.entries(data)) {
+        if (Array.isArray(v)) {
+          fm += `${k}:\n${v.map(i => `  - ${i}`).join('\n')}\n`;
+        } else if (typeof v === 'boolean') {
+          fm += `${k}: ${v}\n`;
+        } else if (v !== '' && v !== null && v !== undefined) {
+          fm += `${k}: "${v}"\n`;
+        }
+      }
+      fm += '---\n';
+      return fm;
+    }
+
+    async function loadResources() {
+      try {
+        const files = await api(`/repos/${REPO}/contents/${CONTENT_PATH}?ref=${BRANCH}`);
+        const mdx = files.filter(f => f.name.endsWith('.mdx'));
+        resourceList.innerHTML = '';
+        for (const f of mdx) {
+          const raw = await api(f.download_url);
+          const body = typeof raw === 'string' ? raw : await fetch(f.download_url).then(r => r.text());
+          const fm = parseFrontmatter(body);
+          const card = document.createElement('div');
+          card.className = 'card p-4 mb-3 flex items-center justify-between';
+          card.innerHTML = `
+            <div>
+              <span class="tag mr-2">${fm.category || '未分类'}</span>
+              <span class="font-semibold">${fm.title || f.name}</span>
+              <span class="text-sm ml-2" style="color:var(--text-tertiary)">${fm.slug || ''}</span>
+            </div>
+            <div class="flex gap-2">
+              <button class="btn-outline text-sm edit-btn" data-file="${f.name}">编辑</button>
+              <button class="btn-outline text-sm del-btn" data-file="${f.name}" data-sha="${f.sha}" style="color:#ef4444;border-color:#ef4444">删除</button>
+            </div>
+          `;
+          resourceList.appendChild(card);
+        }
+        document.querySelectorAll('.edit-btn').forEach(btn => btn.onclick = () => openEditor(btn.dataset.file));
+        document.querySelectorAll('.del-btn').forEach(btn => btn.onclick = () => deleteFile(btn.dataset.file, btn.dataset.sha));
+      } catch (e) {
+        resourceList.innerHTML = `<p style="color:#ef4444">加载失败: ${e.message}</p>`;
+      }
+    }
+
+    async function openEditor(filename) {
+      const res = await api(`/repos/${REPO}/contents/${CONTENT_PATH}/${filename}?ref=${BRANCH}`);
+      const raw = await fetch(res.download_url).then(r => r.text());
+      const body = raw.replace(/^---\n[\s\S]*?\n---\n/, '');
+      const fm = parseFrontmatter(raw);
+      editor.innerHTML = `
+        <div class="mb-4 flex items-center justify-between">
+          <h2 class="text-xl font-bold">编辑 ${filename}</h2>
+          <button id="back-btn" class="btn-outline text-sm">返回</button>
+        </div>
+        <div class="grid grid-cols-2 gap-4 mb-4">
+          <label class="block"><span class="text-sm font-medium">标题</span><input id="f-title" class="w-full mt-1 rounded-lg border px-3 py-2 text-sm" style="border-color:var(--border-color);background:var(--bg-card);color:var(--text-primary)" value="${(fm.title||'').replace(/"/g,'&quot;')}"/></label>
+          <label class="block"><span class="text-sm font-medium">Slug</span><input id="f-slug" class="w-full mt-1 rounded-lg border px-3 py-2 text-sm" style="border-color:var(--border-color);background:var(--bg-card);color:var(--text-primary)" value="${(fm.slug||'').replace(/"/g,'&quot;')}"/></label>
+          <label class="block"><span class="text-sm font-medium">分类</span><input id="f-category" class="w-full mt-1 rounded-lg border px-3 py-2 text-sm" style="border-color:var(--border-color);background:var(--bg-card);color:var(--text-primary)" value="${(fm.category||'').replace(/"/g,'&quot;')}"/></label>
+          <label class="block"><span class="text-sm font-medium">简介</span><input id="f-desc" class="w-full mt-1 rounded-lg border px-3 py-2 text-sm" style="border-color:var(--border-color);background:var(--bg-card);color:var(--text-primary)" value="${(fm.description||'').replace(/"/g,'&quot;')}"/></label>
+          <label class="block"><span class="text-sm font-medium">标签 (逗号分隔)</span><input id="f-tags" class="w-full mt-1 rounded-lg border px-3 py-2 text-sm" style="border-color:var(--border-color);background:var(--bg-card);color:var(--text-primary)" value="${fm.tags||''}"/></label>
+          <label class="block"><span class="text-sm font-medium">发布时间</span><input id="f-date" class="w-full mt-1 rounded-lg border px-3 py-2 text-sm" type="date" style="border-color:var(--border-color);background:var(--bg-card);color:var(--text-primary)" value="${fm.publishDate||''}"/></label>
+          <label class="block"><span class="text-sm font-medium">夸克链接</span><input id="f-quark" class="w-full mt-1 rounded-lg border px-3 py-2 text-sm" style="border-color:var(--border-color);background:var(--bg-card);color:var(--text-primary)" value="${(fm['夸克链接']||'').replace(/"/g,'&quot;')}"/></label>
+          <label class="block"><span class="text-sm font-medium">百度链接</span><input id="f-baidu" class="w-full mt-1 rounded-lg border px-3 py-2 text-sm" style="border-color:var(--border-color);background:var(--bg-card);color:var(--text-primary)" value="${(fm['百度链接']||'').replace(/"/g,'&quot;')}"/></label>
+          <label class="block"><span class="text-sm font-medium">迅雷链接</span><input id="f-xunlei" class="w-full mt-1 rounded-lg border px-3 py-2 text-sm" style="border-color:var(--border-color);background:var(--bg-card);color:var(--text-primary)" value="${(fm['迅雷链接']||'').replace(/"/g,'&quot;')}"/></label>
+        </div>
+        <label class="block mb-4"><span class="text-sm font-medium">正文内容 (Markdown)</span>
+          <textarea id="f-body" rows="12" class="w-full mt-1 rounded-lg border px-3 py-2 text-sm font-mono" style="border-color:var(--border-color);background:var(--bg-card);color:var(--text-primary)">${body.replace(/</g,'&lt;')}</textarea>
+        </label>
+        <div class="flex gap-3">
+          <button id="save-btn" class="btn-primary">保存</button>
+        </div>
+      `;
+      editor.classList.remove('hidden');
+      resourceList.classList.add('hidden');
+      $('#back-btn').onclick = () => { editor.classList.add('hidden'); resourceList.classList.remove('hidden'); };
+      $('#save-btn').onclick = () => saveFile(filename, res.sha);
+    }
+
+    async function saveFile(filename, sha) {
+      const data = {
+        title: $('#f-title').value,
+        slug: $('#f-slug').value,
+        description: $('#f-desc').value,
+        category: $('#f-category').value,
+        tags: $('#f-tags').value ? $('#f-tags').value.split(',').map(s => s.trim()) : [],
+        publishDate: $('#f-date').value,
+        '夸克链接': $('#f-quark').value,
+        '百度链接': $('#f-baidu').value,
+        '迅雷链接': $('#f-xunlei').value,
+      };
+      const content = buildFrontmatter(data) + '\n' + $('#f-body').value;
+      try {
+        await api(`/repos/${REPO}/contents/${CONTENT_PATH}/${filename}`, {
+          method: 'PUT',
+          body: JSON.stringify({ message: `update: ${filename}`, content: btoa(unescape(encodeURIComponent(content))), sha, branch: BRANCH }),
+        });
+        alert('保存成功！');
+        editor.classList.add('hidden');
+        resourceList.classList.remove('hidden');
+        loadResources();
+      } catch (e) { alert('保存失败: ' + e.message); }
+    }
+
+    async function deleteFile(filename, sha) {
+      if (!confirm(`确认删除 ${filename}？`)) return;
+      try {
+        await api(`/repos/${REPO}/contents/${CONTENT_PATH}/${filename}`, {
+          method: 'DELETE',
+          body: JSON.stringify({ message: `delete: ${filename}`, sha, branch: BRANCH }),
+        });
+        loadResources();
+      } catch (e) { alert('删除失败: ' + e.message); }
+    }
+
+    async function login() {
+      const t = $('#token-input').value.trim();
+      if (!t) return alert('请输入 Token');
+      try {
+        await api('/user', { headers: { 'Authorization': `token ${t}` } });
+        token = t;
+        localStorage.setItem('gh-token', t);
+        loginBox.classList.add('hidden');
+        panelBox.classList.remove('hidden');
+        loadResources();
+      } catch (e) { alert('Token 无效: ' + e.message); }
+    }
+
+    $('#login-btn').onclick = login;
+    $('#logout-btn').onclick = () => { localStorage.removeItem('gh-token'); location.reload(); };
+    $('#new-btn').onclick = () => openEditor('new-resource.mdx');
+
+    if (token) {
+      api('/user').then(() => {
+        loginBox.classList.add('hidden');
+        panelBox.classList.remove('hidden');
+        loadResources();
+      }).catch(() => localStorage.removeItem('gh-token'));
+    }
+  </script>
+</BaseLayout>
