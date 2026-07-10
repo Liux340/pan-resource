@@ -120,16 +120,23 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     }
 
     async function openEditor(filename) {
-      const res = await api(`/repos/${REPO}/contents/${CONTENT_PATH}/${filename}?ref=${BRANCH}`);
-      const raw = await fetch(res.download_url).then(r => r.text());
-      const body = raw.replace(/^---\n[\s\S]*?\n---\n/, '');
-      const fm = parseFrontmatter(raw);
+      let fm = {};
+      let body = '';
+      let sha = null;
+      try {
+        const res = await api(`/repos/${REPO}/contents/${CONTENT_PATH}/${filename}?ref=${BRANCH}`);
+        sha = res.sha;
+        const raw = await fetch(res.download_url).then(r => r.text());
+        body = raw.replace(/^---\n[\s\S]*?\n---\n/, '');
+        fm = parseFrontmatter(raw);
+      } catch (e) { /* new file */ }
       editor.innerHTML = `
         <div class="mb-4 flex items-center justify-between">
-          <h2 class="text-xl font-bold">编辑 ${filename}</h2>
+          <h2 class="text-xl font-bold">${sha ? '编辑' : '新建'} ${filename}</h2>
           <button id="back-btn" class="btn-outline text-sm">返回</button>
         </div>
         <div class="grid grid-cols-2 gap-4 mb-4">
+          <label class="block"><span class="text-sm font-medium">文件名</span><input id="f-filename" class="w-full mt-1 rounded-lg border px-3 py-2 text-sm" style="border-color:var(--border-color);background:var(--bg-card);color:var(--text-primary)" value="${filename}" ${sha ? 'disabled' : ''}/></label>
           <label class="block"><span class="text-sm font-medium">标题</span><input id="f-title" class="w-full mt-1 rounded-lg border px-3 py-2 text-sm" style="border-color:var(--border-color);background:var(--bg-card);color:var(--text-primary)" value="${(fm.title||'').replace(/"/g,'&quot;')}"/></label>
           <label class="block"><span class="text-sm font-medium">Slug</span><input id="f-slug" class="w-full mt-1 rounded-lg border px-3 py-2 text-sm" style="border-color:var(--border-color);background:var(--bg-card);color:var(--text-primary)" value="${(fm.slug||'').replace(/"/g,'&quot;')}"/></label>
           <label class="block"><span class="text-sm font-medium">分类</span><input id="f-category" class="w-full mt-1 rounded-lg border px-3 py-2 text-sm" style="border-color:var(--border-color);background:var(--bg-card);color:var(--text-primary)" value="${(fm.category||'').replace(/"/g,'&quot;')}"/></label>
@@ -150,10 +157,11 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       editor.classList.remove('hidden');
       resourceList.classList.add('hidden');
       $('#back-btn').onclick = () => { editor.classList.add('hidden'); resourceList.classList.remove('hidden'); };
-      $('#save-btn').onclick = () => saveFile(filename, res.sha);
+      $('#save-btn').onclick = () => saveFile($('#f-filename').value, sha);
     }
 
     async function saveFile(filename, sha) {
+      if (!filename || !filename.endsWith('.mdx')) return alert('文件名必须以 .mdx 结尾');
       const data = {
         title: $('#f-title').value,
         slug: $('#f-slug').value,
@@ -166,11 +174,10 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         '迅雷链接': $('#f-xunlei').value,
       };
       const content = buildFrontmatter(data) + '\n' + $('#f-body').value;
+      const body = { message: `${sha ? 'update' : 'create'}: ${filename}`, content: btoa(unescape(encodeURIComponent(content))), branch: BRANCH };
+      if (sha) body.sha = sha;
       try {
-        await api(`/repos/${REPO}/contents/${CONTENT_PATH}/${filename}`, {
-          method: 'PUT',
-          body: JSON.stringify({ message: `update: ${filename}`, content: btoa(unescape(encodeURIComponent(content))), sha, branch: BRANCH }),
-        });
+        await api(`/repos/${REPO}/contents/${CONTENT_PATH}/${filename}`, { method: 'PUT', body: JSON.stringify(body) });
         alert('保存成功！');
         editor.classList.add('hidden');
         resourceList.classList.remove('hidden');
