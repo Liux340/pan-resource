@@ -2,7 +2,6 @@ backend:
   name: github
   repo: Liux340/pan-resource
   branch: master
-  site_domain: pan-resource.pages.dev
   base_url: https://pan-resource.pages.dev
   auth_endpoint: api/auth
 
