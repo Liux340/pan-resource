@@ -4,7 +4,7 @@ import mdx from '@astrojs/mdx';
 
 export default defineConfig({
   integrations: [tailwind(), mdx()],
-  site: 'https://pan-resource.pages.dev',
+  site: 'https://pan.quicktoollab.top',
   output: 'static',
   vite: {
     ssr: {

@@ -151,6 +151,13 @@ declare module 'astro:content' {
 
 	type ContentEntryMap = {
 		"resources": {
+"black-myth-wukong.mdx": {
+	id: "black-myth-wukong.mdx";
+  slug: "black-myth-wukong";
+  body: string;
+  collection: "resources";
+  data: InferEntrySchema<"resources">
+} & { render(): Render[".mdx"] };
 "office-2024.mdx": {
 	id: "office-2024.mdx";
   slug: "office-2024";

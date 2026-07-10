@@ -94,8 +94,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         const mdx = files.filter(f => f.name.endsWith('.mdx'));
         resourceList.innerHTML = '';
         for (const f of mdx) {
-          const raw = await api(f.download_url);
-          const body = typeof raw === 'string' ? raw : await fetch(f.download_url).then(r => r.text());
+          const raw = await fetch(f.download_url).then(r => r.text());
           const fm = parseFrontmatter(body);
           const card = document.createElement('div');
           card.className = 'card p-4 mb-3 flex items-center justify-between';
