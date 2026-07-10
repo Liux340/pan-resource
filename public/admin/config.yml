@@ -2,7 +2,7 @@ backend:
   name: github
   repo: Liux340/pan-resource
   branch: master
-  base_url: https://pan-resource-oauth.zw06101.workers.dev/
+  base_url: https://pan-resource-oauth.zw06101.workers.dev
   auth_endpoint: auth
 
 media_folder: 'public/images'

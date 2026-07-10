@@ -23,16 +23,9 @@ export default {
         }),
       });
       const data = await res.json();
-      const html = `<html><body><script>
-        (function() {
-          function receiveMessage(e) {
-            window.opener.postMessage('${JSON.stringify(data)}', e.origin);
-            window.close();
-          }
-          window.addEventListener('message', receiveMessage, false);
-          window.opener.postMessage('authorizing:' + (data.access_token ? 'success' : 'error'), '*');
-        })();
-      </script></body></html>`;
+      const result = { token: data.access_token, ...data };
+      const json = JSON.stringify(result).replace(/<\/script>/gi, '<\\/script>');
+      const html = `<!DOCTYPE html><html><body><script>(function(){window.opener.postMessage(${json},'*');window.close()})()<\/script></body></html>`;
       return new Response(html, { headers: { 'Content-Type': 'text/html' } });
     }
 
