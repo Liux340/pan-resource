@@ -2,8 +2,7 @@ backend:
   name: github
   repo: Liux340/pan-resource
   branch: master
-  base_url: https://pan-resource.pages.dev
-  auth_endpoint: api/auth
+  site_domain: pan-resource.pages.dev
 
 media_folder: 'public/images'
 public_folder: '/images'
