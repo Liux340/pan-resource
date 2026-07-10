@@ -23,9 +23,29 @@ export default {
         }),
       });
       const data = await res.json();
-      const result = { token: data.access_token, ...data };
-      const json = JSON.stringify(result).replace(/<\/script>/gi, '<\\/script>');
-      const html = `<!DOCTYPE html><html><body><script>(function(){window.opener.postMessage(${json},'*');window.close()})()<\/script></body></html>`;
+
+      const payload = JSON.stringify({ token: data.access_token, ...data })
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'");
+
+      const html = `<!DOCTYPE html>
+<html>
+<body>
+<script>
+  console.log('OAuth callback received');
+  console.log('opener:', !!window.opener);
+  var payload = '${payload}';
+  console.log('payload:', payload);
+  if (window.opener) {
+    window.opener.postMessage(payload, '*');
+    console.log('message sent, closing...');
+    setTimeout(function() { window.close(); }, 200);
+  } else {
+    document.body.innerHTML = '<p>OAuth complete. Token received. You can close this window.</p>';
+  }
+<\/script>
+</body>
+</html>`;
       return new Response(html, { headers: { 'Content-Type': 'text/html' } });
     }
 
