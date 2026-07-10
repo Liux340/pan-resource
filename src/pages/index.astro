@@ -2,12 +2,13 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import ResourceCard from '../components/ResourceCard.astro';
 import CategoryCard from '../components/CategoryCard.astro';
-import { getCategories, getLatestResources, getHotResources, getRecommendedResources } from '../utils/resource';
+import { getCategories, getLatestResources, getHotResources, getRecommendedResources, getResourcesByCategory } from '../utils/resource';
 
 const categories = getCategories();
 const latestResources = getLatestResources(8);
 const hotResources = getHotResources();
 const recommendedResources = getRecommendedResources();
+const gameResources = getResourcesByCategory('game');
 
 const totalResources = Object.keys(import.meta.glob('../content/resources/*.md', { eager: true })).length;
 const totalCategories = categories.length;
@@ -65,6 +66,19 @@ const totalCategories = categories.length;
       {categories.slice(0, 10).map((cat) => <CategoryCard category={cat} />)}
     </div>
   </section>
+
+  <!-- 游戏专区 -->
+  {gameResources.length > 0 && (
+    <section class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16" style="background-color: var(--bg-secondary);">
+      <div class="flex items-center justify-between mb-8">
+        <h2 class="section-title">🎮 游戏专区</h2>
+        <a href="/category/game" class="btn-outline text-sm">查看全部</a>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        {gameResources.map((r) => <ResourceCard resource={r} />)}
+      </div>
+    </section>
+  )}
 
   <!-- 最新资源 -->
   <section class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16" style="background-color: var(--bg-secondary);">
